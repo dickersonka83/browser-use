@@ -23,6 +23,7 @@ from playwright.async_api import (
 	ElementHandle,
 	FrameLocator,
 	Page,
+	ViewportSize,
 )
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
@@ -167,6 +168,8 @@ class BrowserContextConfig(BaseModel):
 	geolocation: dict | None = None
 	permissions: list[str] | None = None
 	timezone_id: str | None = None
+	init_script: str | None = None
+	viewport_size: ViewportSize | None = None
 
 
 class BrowserSession:
@@ -414,7 +417,7 @@ class BrowserContext:
 		else:
 			# Original code for creating new context
 			context = await browser.new_context(
-				no_viewport=True,
+				no_viewport=self.config.no_viewport,
 				user_agent=self.config.user_agent,
 				java_script_enabled=True,
 				bypass_csp=self.config.disable_security,
@@ -429,7 +432,11 @@ class BrowserContext:
 				geolocation=self.config.geolocation,
 				permissions=self.config.permissions,
 				timezone_id=self.config.timezone_id,
+				viewport=self.config.viewport_size,
 			)
+
+			if self.config.permissions:
+				context.grant_permissions(self.config.permissions)
 
 		if self.config.trace_path:
 			await context.tracing.start(screenshots=True, snapshots=True, sources=True)
@@ -490,6 +497,9 @@ class BrowserContext:
             })();
             """
 		)
+
+		if self.config.init_script:
+			await context.add_init_script(self.config.init_script)
 
 		return context
 
